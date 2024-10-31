@@ -1,0 +1,12 @@
+vibeski:
+
+have project
+feed sequence data into nn and predict
+proprietary, since i think i have a startup and i dont wanna run 33 NDAs for peeps in the class
+built LSTM, goes hard in the paint, need more features tho
+
+time to build transformer
+- c++ because python hella slow
+- learn about transformer
+
+aight
