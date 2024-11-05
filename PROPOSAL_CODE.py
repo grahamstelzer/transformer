@@ -1,3 +1,5 @@
+# note: around 80-90 lines without spacing
+
 
 # =================skip doing pip install in terminal======================
 import subprocess
@@ -117,11 +119,6 @@ for batch in eval_dataloader:
     num_samples += predictions.size(0)
 
 print(f"Validation Accuracy: {accuracy / num_samples:.2f}")
-
-
-
-
-
 
 ### predict next ###
 def predict(text):
