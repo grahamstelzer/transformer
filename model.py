@@ -7,6 +7,13 @@ import math
 # sentence mapped to list of vectors by embeddings layer
 # 512
 
+"""
+TODO: 
+    - nn.Module used a LOT, still not sure fully what it does
+    - other TODO tages scattered thru program for areas which
+      I am significantly confused about
+"""
+
 class InputEmbeddings(nn.Module):
     
     def __init__(self, d_model: int, vocab_size: int): # dimension of model, num words in vocab
@@ -94,8 +101,8 @@ class FeedForwardBlock(nn.Module):
 
 class MultiHeadAttentionBlock(nn.Module):
     # see visual for better breakdown:
-    def __init__(self, d_:model: int, h: int, dropout: float) -> None: # h is num of heads
-        super().__init__():
+    def __init__(self, d_model: int, h: int, dropout: float) -> None: # h is num of heads
+        super().__init__()
         self.d_model = d_model
         self.h = h
 
@@ -158,6 +165,61 @@ class MultiHeadAttentionBlock(nn.Module):
         # calc attention using formula
         x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)
 
-        # (batch)
-        x = x.tranpose(1, 2)
+        # (batch, h , seq, d_k) --> (batch, seq, h, d_k) --> (batch, seq, de_model)
+        x = x.tranpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k) # TODO: contiguous function?? "in place"
 
+        # (batch, seq, d_model) --> (batch, seq, d_model)
+        return self.w_o(x)
+
+
+# connection in encoder after multihead, to add feed forward
+# with skip connection to add norm
+class ResidualConnection(nn.Module):
+    def __init__(self, dropout: float) -> None:
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.norm = LayerNormalization()
+
+    def forward(self, x, sublayer):
+        # add and norm?
+        # TODO: where does sublayer come from
+        return x + self.dropout(sublayer(self.norm(x)))
+
+
+
+
+
+class EncoderBlock(nn.Module):
+    
+    def __init__(self, 
+        self_attention_block: MultiHeadAttentionBlock, 
+        feed_forward_block: FeedForwardBlock,
+        dropout: float) -> None:
+        super().__init__()
+        self.self_attention_block = self_attention_block
+        self.feed_forward_block = feed_forward_block
+        self.residual_connections = nn.ModuleList([ResidualConnection(dropout) for _ in range(2)]) # TODO: ModuleList
+
+    def forward(self, x, src_mask): # src_mask used to hide padding words from others
+
+        # "x watching itself"
+        # in encoder (different for decoder), query key value are the same
+        # calling forward method of multiheadattentionblock:
+        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, src_mask))
+        x = self.residual_connections[1](x, self.feed_forward_block)
+        
+        return x
+
+
+class Encoder(nn.Module):
+
+    def __init__(self, layers: nn.ModuleList) -> None:
+        super().__init__()
+        self.layers = layers
+        self.norm = LayerNormalization()
+
+    def forward(self, x, mask):
+        for layer in self.layers:
+            x = layer(x, mask)
+
+        return self.norm(x)
