@@ -14,10 +14,15 @@ TODO:
       I am significantly confused about
 """
 
+
+
 """
 TODO: nn.Module:
 
 """
+
+
+
 
 """
 TODO: d_model:
@@ -25,6 +30,22 @@ TODO: d_model:
       - usually 512
       - ex. word embeddings are each a vector of size 512 -> which obviously decides other matrix sizes when walking through the model
 """
+
+
+
+
+"""
+TODO: dropout:
+      - main point is to randomly select some elements of intermediate data representations and set them to 0 (say in the input tensor) 
+      - this prevents overfitting and over-reliance on certian patterns
+      - ex. applied to output of attention mechanism
+      - ex. applied to token embeddigs + position embeddings before passing to transformer layer
+      - dropout in the embedding layer:
+        - randomly zeroes out parts of the embedding vector for each token, not the entire token embedding.
+        - embedding vector is [0.1,0.2,0.3,0.4], dropout zeroes out 50% of it result is [0.1,0,0.3,0]
+        - encourages the model to distribute information across the dimensions of the embedding vector instead of relying on specific ones
+"""
+
 
 
 
@@ -377,6 +398,46 @@ def build_transformer(src_vocab_size: int,
     tgt_embed = InputEmbeddings(d_model, tgt_vocab_size)
 
     # create positional encoding layers
+    # TODO: possibly optimize this portion?
+    src_pos = PositionalEncoding(d_model, src_seq_len, dropout)
+    tgt_pos = PositionalEncoding(d_model, tgt_seq_len, dropout)
 
+    # create encoder blocks:
+    encoder_blocks = []
+    for _ in range(N):
+        encoder_self_attention = MultiHeadAttentionBlock(d_model, h, dropout)
 
+        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
 
+        encoder_block = EncoderBLock(encoder_self_attention, feed_forward_block, dropout)
+        encoder_blocks.append(encoder_block)
+
+    # create decoder blocks:
+    decoder_blocks = []
+    for _ in range(N):
+        decoder_self_attention = MultiHeadAttentionBlock(d_model, h, dropout)
+        decoder_cross_attention_block = MultiHeadAttentionBlock(d_model, h, dropout)
+        
+        feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
+
+        decoder_block = DecoderBlock(decoder_self_attention, decoder_cross_attention_block, feed_forward_block, dropout)
+        decoder_blocks.append(decoder_block)
+
+    # create encoder and decoder
+    encoder = Encoder(nn.ModuleList(encoder_blocks))
+    decoder = Decoder(nn.ModuleList(decoder_blocks))
+
+    # projection layer
+    projection_layer = ProjectionLayer(d_model, tgt_vocab_size)
+
+    # create transformer
+    transformer = Transformer(encoder, decoder, src_embed, tgt_embed, src_pos, tgt_pos, projection_layer)
+
+    # intialize parameters
+    # NOTE: normally random, can be decided to make training a bit faster
+    # NOTE: in this case using xavier_uniform_
+    for p in trasnformer.parameters(): # TODO: where does this function come from?? possibly from imported nn.Module stuff??
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+
+    return transformer
