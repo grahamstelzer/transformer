@@ -281,7 +281,7 @@ class DecoderBlock(nn.Module):
         self.feed_forward_block = feed_forward_block
         
         # 3 connections? TODO: check (prolly on diagram)
-        self.residual_connections = nn.Module([ResidualConnection(dropout) for _ in range(3)])
+        self.residual_connections = nn.ModuleList([ResidualConnection(dropout) for _ in range(3)])
 
     # NOTE/TODO: from tutorial, src and tgt are here because of translation task
     #            this is probably not exactly what we want since we will not always be translating
