@@ -14,6 +14,20 @@ TODO:
       I am significantly confused about
 """
 
+"""
+TODO: nn.Module:
+
+"""
+
+"""
+TODO: d_model:
+      - think of as "dimension of model"
+      - usually 512
+      - ex. word embeddings are each a vector of size 512 -> which obviously decides other matrix sizes when walking through the model
+"""
+
+
+
 class InputEmbeddings(nn.Module):
     
     def __init__(self, d_model: int, vocab_size: int): # dimension of model, num words in vocab
@@ -219,7 +233,150 @@ class Encoder(nn.Module):
         self.norm = LayerNormalization()
 
     def forward(self, x, mask):
+        # NOTE: each leyer is an EncoderBLock that we call their forward method in
         for layer in self.layers:
             x = layer(x, mask)
 
         return self.norm(x)
+
+
+# DECODER:
+# NOTE: very similar to encoder, main difference is cross-attention:
+#       - second mh attention calculation takes Query and Key from encoder
+
+
+class DecoderBlock(nn.Module):
+    
+    def __init__(self, 
+        self_attention_block: MultiHeadAttentionBlock, 
+        cross_attention_block: MultiHeadAttentionBlock,
+        feed_forward_block: FeedForwardBlock,
+        dropout: float) -> None:
+
+        super().__init__()
+
+        self.self_attention_block = self_attention_block
+        self.cross_attention_block = cross_attention_block
+        self.feed_forward_block = feed_forward_block
+        
+        # 3 connections? TODO: check (prolly on diagram)
+        self.residual_connections = nn.Module([ResidualConnection(dropout) for _ in range(3)])
+
+    # NOTE/TODO: from tutorial, src and tgt are here because of translation task
+    #            this is probably not exactly what we want since we will not always be translating
+    def forward(self, x, encoder_output, src_mask, tgt_mask):
+        x = self.residual_connections[0](x, lambda x: self.self_attention_block(x, x, x, tgt_mask)) # NOTE: verify
+
+        # NOTE: difference, query comes from DECoder, key and value from ENCder   + mask of encoder
+        x = self.residual_connections[1](x, lambda x: self.cross_attention_block(x, x, x, src_mask)) # NOTE: verify
+
+        x = self.residual_connections[2](x, self.feed_forward_block)
+
+        return x
+
+
+class Decoder(nn.Module):
+
+    def __init__(self, layers: nn.ModuleList) -> None:
+        super().__init__()
+        self.layers = layers
+        self.norm = LayerNormalization()
+
+    def forward(self, x, encoder_output, src_mask, tgt_mask):
+        for layer in self.layers:
+            # NOTE: each leyer is a Decoderblock that we call their forward method in
+            x = layer(x, encoder_output, src_mask, tgt_mask)
+
+        return self.norm(x)
+
+
+
+
+# linear layer (last before output)
+# output from mha is seq by dlayer (ignoring batch dimension)
+# linear layer projects the embedding back into vocabulary
+
+
+
+class ProjectionLayer(nn.Module):
+
+    def __init__(self, d_model: int, vocab_size: int) -> None:
+        super().__init__()
+        self.proj = nn.Linear(d_model, vocab_size) # TODO: make sure we know how to run a linear layer
+
+    def forward(self, x):
+        # (batch, seqlen, dmodel) --> (batch seqlen, vocabsize)
+        # TODO: logarithmic softmax
+        return torch.log_softmax(self.proj(x), dim = -1)
+
+
+
+
+
+
+
+
+# transformer:
+
+class Transformer(nn.Module):
+
+    def __init__(self, 
+            encoder: Encoder, 
+            decoder: Decoder,
+            src_embed: InputEmbeddings,
+            tgt_embed: InputEmbeddings,
+            src_pos: PositionalEncoding,
+            tgt_pos: PositionalEncoding,
+            projection_layer: ProjectionLayer) -> None:
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.src_embed = src_embed
+        self.tgt_embed = tgt_embed
+        self.src_pos = src_pos
+        self.tgt_pos = tgt_pos
+        self.projection_layer = projection_layer
+
+
+    # methods: encode, decode, project
+    # NOTE: instead of 1 forward, during inference, can reuse output of encoder instead of recaluclating.
+    #       also helps for visualizing
+
+    def encode(self, src, src_mask):
+        src = self.src_embed(src)
+        src = self.src_pos(src)
+        return self.encoder(src, src_mask)
+
+    def decode(self, encoder_output, src_mask, tgt, tgt_mask):
+        tgt = self.tgt_embed(tgt)
+        tgt = self.tgt_pos(tgt)
+        return self.encoder(tgt, encoder_output, src_mask, tgt_mask)
+
+    def project(self, x):
+        return self.projection_layer(x)
+
+
+
+
+# given hyperparameters, build transformer:
+# NOTE: considers translation, but can use for other tasks
+#       so uses translation task names for things
+def build_transformer(src_vocab_size: int, 
+                      tgt_vocab_size: int,
+                      src_seq_len: int,
+                      tgt_seq_len: int,
+                      d_model: int=512,
+                      N: int=6, # number of layers (blocks), paper uses 6
+                      h: int=8, # number of heads, paper uses 8
+                      dropout: float=0.1,
+                      d_ff=2048 # hidden feedforward layer TODO: check to make sure this makes sense
+                      ) -> Transformer:
+
+    # create embedding layers
+    src_embed = InputEmbeddings(d_model, src_vocab_size)
+    tgt_embed = InputEmbeddings(d_model, tgt_vocab_size)
+
+    # create positional encoding layers
+
+
+
