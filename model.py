@@ -8,19 +8,18 @@ import math
 # 512
 
 """
-TODO: 
-    - nn.Module used a LOT, still not sure fully what it does
-    - other TODO tages scattered thru program for areas which
-      I am significantly confused about
+TODO: multiple TODO comments scattered throughout code represent 2 things (usually overlapping)
+      1. a code snippet or function I dont quite understand
+      2. something I am not sure how to turn into C++ yet
+      
+      below are a couple vocabulary terms that are helpful to know when looking at the code
 """
-
 
 
 """
 TODO: nn.Module:
 
 """
-
 
 
 
@@ -47,7 +46,9 @@ TODO: dropout:
 """
 
 
-
+"""
+TODO: tensors:
+"""
 
 class InputEmbeddings(nn.Module):
     
