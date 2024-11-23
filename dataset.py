@@ -16,6 +16,7 @@ class BilingualDataset(Dataset):
         self.seq_len = seq_len
 
         # NOTE: special methods to build tensor for SOS, EOS, PAD
+        #       they build tensors with specific values referring to SOS, EOS, PAD
         # TODO: Tensor()
         # TODO: token_to_id()
         self.sos_token = torch.Tensor([tokenizer_src.token_to_id(['[SOS]'])], dtype=torch.int64) # NOTE: dtype as long since vocab can be more than 32 bit
@@ -47,3 +48,67 @@ class BilingualDataset(Dataset):
         #       if not, raise exception (padding tokens should never become negative)
         if enc_num_padding_tokens < 0 or dec_num_padding_tokens < 0:
             raise ValueError('Sentence is too long')
+
+
+        """
+        BUILDING TENSORS FOR INPUT TO ENC AND DEC:
+        1. input tensor to enc
+        2. input tensor to dec
+        3. label/target for dec (expected output for dec)
+        """
+
+        # add SOS, EOS and padding to enc input
+        encoder_input = torch.cat(
+            {
+                self.sos_token,
+                torch.tensor(enc_input_tokens, dtype=torch.int64),
+                self.eos_token,
+                torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64)
+            }
+        )
+
+        # add only SOS and padding to dec input
+        decoder_input = torch.cat(
+            {
+                self.sos_token,
+                torch.tensor(dec_input_tokens, dtype=torch.int64),
+                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+            }
+        )
+
+        # add only EOS and padding to label
+        label = torch.cat(
+            {
+                torch.tensor(dec_input_tokens, dtype=torch.int64)
+                self.eos_token
+                torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
+            }
+        )
+
+        assert encoder_input.size(0) == self.seq_len
+        assert decoder_input.size(0) == self.seq_len
+        assert label.size(0) == self.seq_len
+
+        return {
+            # (seq_len):
+            "encoder_input": encoder_input,
+            "decoder_input": decoder_input,
+
+            # encoder mask:
+            # NOTE: consider that we are adding padding tokens to the sequences
+            #       we do not want these tokens to be seen in training
+            "encoder_mask": (encoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int(), # (1, 1, seq_len)
+            # unsqueeze to add seq dimensions and to add batch dimension
+            # TODO: unsqueeze function
+
+            # decoder mask:
+            # NOTE: causal mask: each word only should look at previous words and non-padding words
+            "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int() 
+                            &  # binary and
+                            causal_mask(decoder_input,size(0)), # (1, seq_len) & (1, seq_len, seq_len)
+            
+            # "label": label
+        }
+
+
+def causal_mask:
