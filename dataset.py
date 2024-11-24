@@ -107,8 +107,20 @@ class BilingualDataset(Dataset):
                             &  # binary and
                             causal_mask(decoder_input,size(0)), # (1, seq_len) & (1, seq_len, seq_len)
             
-            # "label": label
+            "label": label, # (seqlen)
+            # for visualization:
+            "src_text": src_text,
+            "tgt_text": tgt_text
         }
 
 
-def causal_mask:
+# NOTE: (consider self attentions slides, the Q * K matrix) we only want each word in dict to look at words that came before it:
+#   ex: # a b c d
+#       a   - - -
+#       b     - -
+#       c       -
+#       d
+#   seq is a b c d, consider left vertical: a should only look at a, b can look at b and a...
+def causal_mask(size):
+    mask = torch.triu(torch.ones(1, size, size), diagonal=1).type(torch.int) # TODO: visualize this matrix
+    return mask == 0 # TODO: double check this logic
