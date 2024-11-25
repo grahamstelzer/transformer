@@ -191,7 +191,7 @@ def train_model(config):
         
 
         # save model every epoch
-        model_filename = get_weights_file_path(config, f'{epoch:02d }')
+        model_filename = get_weights_file_path(config, f'{epoch:02}')
         
         # extremely necessary to save snapshots with large vocab, 
         # otherwise optimzer always starts from 0 when figuring out how to move each weight, even if starting from another epoch and 
@@ -199,7 +199,7 @@ def train_model(config):
             'epoch': epoch,
             'model_state_dict': model.state_dict(), # NOTE: all the weights of the model
             'optimizer_state_dict': optimizer.state_dict(),
-            'global_step': global_step
+            'global_step': global_step      
         }, model_filename)
 
 
