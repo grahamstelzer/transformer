@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 
+from typing import Any # NOTE: fixes error that occurs when trying to use Any in class method declarations
+
 class BilingualDataset(Dataset):
 
     def __init__(self, ds, tokenizer_src, tokenizer_tgt, src_lang, tgt_lang, seq_len) -> None:
@@ -79,8 +81,8 @@ class BilingualDataset(Dataset):
         # add only EOS and padding to label
         label = torch.cat(
             {
-                torch.tensor(dec_input_tokens, dtype=torch.int64)
-                self.eos_token
+                torch.tensor(dec_input_tokens, dtype=torch.int64),
+                self.eos_token,
                 torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
             }
         )
