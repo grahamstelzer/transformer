@@ -46,7 +46,7 @@ def get_or_build_tokenizer(config, ds, lang): # cfg defined elsewhere, dataset, 
         # word level trainer (splits based on whitespace as opposed to say, parts of a word)
         trainer = WordLevelTrainer(special_tokens=["[UNK]", "[PAD]", "[SOS]", "[EOS]"], min_frequency=2)
 
-        tokenizer = train_from_iterator(get_all_sentences(ds, lang), trainer=trainer)
+        tokenizer.train_from_iterator(get_all_sentences(ds, lang), trainer=trainer)
 
         tokenizer.save(str(tokenizer_path))
     else:
@@ -57,7 +57,7 @@ def get_or_build_tokenizer(config, ds, lang): # cfg defined elsewhere, dataset, 
 
 # load dataset and build tokenizer:
 def get_ds(config):
-    ds_raw = load_dataset('opus_books', f'{config[lang_src]}-{config[lang_tgt]}', split='train') # NOTE: defines split from HF, but we will define ourselves
+    ds_raw = load_dataset('opus_books', f'{config["lang_src"]}-{config["lang_tgt"]}', split='train') # NOTE: defines split from HF, but we will define ourselves
 
     # build tokenizers:
     tokenizer_src = get_or_build_tokenizer(config, ds_raw, config['lang_src'])
@@ -81,8 +81,9 @@ def get_ds(config):
 
     for item in ds_raw:
         # load each sentence from src and tgt, convert to ids, check the length, add a bit more than max for seqlen
-        src_ids = tokenizer_src.encode(item['translation']['config'['lang_src']]).ids # TODO: double check ids (i forget where they came from)
-        tgt_ids = tokenizer_src.encode(item['translation']['config'['lang_tgt']]).ids
+        src_ids = tokenizer_src.encode(item['translation'][config['lang_src']]).ids
+ # TODO: double check ids (i forget where they came from)
+        tgt_ids = tokenizer_tgt.encode(item['translation'][config['lang_tgt']]).ids
 
         max_len_src = max(max_len_src, len(src_ids))
         max_len_tgt = max(max_len_tgt, len(tgt_ids))
@@ -93,15 +94,15 @@ def get_ds(config):
 
         
     # TODO: Dataloader from torch utils
-    train_dataloader = Dataloader(train_ds, batch_size=config['batch_size'], shuffle=True)
-    val_dataloader = Dataloader(val_ds, batch_size=1) # validaiton: batch_size=1 to process each sentence seperately
+    train_dataloader = DataLoader(train_ds, batch_size=config['batch_size'], shuffle=True)
+    val_dataloader = DataLoader(val_ds, batch_size=1) # validaiton: batch_size=1 to process each sentence seperately
     
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    model = build_transformer(vocab_src_len, tgt_vocab_size, config['seq_len'], config['seq_len'], config['d_model'])
+    model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
     return model
 
 # NOTE: reduce number of heads or layer if too much for GPU
@@ -121,7 +122,7 @@ def train_model(config):
     Path(config['model_folder']).mkdir(parents=True, exist_ok=True)
 
     train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt = get_ds(config)
-    model.get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device) # TODO: check get_vocab_size() method and .to() method
+    model = get_model(config, tokenizer_src.get_vocab_size(), tokenizer_tgt.get_vocab_size()).to(device) # TODO: check get_vocab_size() method and .to() method
 
     # TODO: Tensorboard: visualize loss
     writer = SummaryWriter(config['experiment_name'])

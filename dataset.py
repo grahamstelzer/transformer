@@ -21,9 +21,10 @@ class BilingualDataset(Dataset):
         #       they build tensors with specific values referring to SOS, EOS, PAD
         # TODO: Tensor()
         # TODO: token_to_id()
-        self.sos_token = torch.Tensor([tokenizer_src.token_to_id(['[SOS]'])], dtype=torch.int64) # NOTE: dtype as long since vocab can be more than 32 bit
-        self.eos_token = torch.Tensor([tokenizer_src.token_to_id(['[EOS]'])], dtype=torch.int64)
-        self.pad_token = torch.Tensor([tokenizer_src.token_to_id(['[PAD]'])], dtype=torch.int64)
+        self.sos_token = torch.tensor([tokenizer_tgt.token_to_id("[SOS]")], dtype=torch.int64) # NOTE: dtype as long since vocab can be more than 32 bit
+        self.eos_token = torch.tensor([tokenizer_tgt.token_to_id("[EOS]")], dtype=torch.int64)
+
+        self.pad_token = torch.tensor([tokenizer_tgt.token_to_id("[PAD]")], dtype=torch.int64)
 
 
     def __len__(self):
@@ -61,30 +62,30 @@ class BilingualDataset(Dataset):
 
         # add SOS, EOS and padding to enc input
         encoder_input = torch.cat(
-            {
+            [
                 self.sos_token,
                 torch.tensor(enc_input_tokens, dtype=torch.int64),
                 self.eos_token,
                 torch.tensor([self.pad_token] * enc_num_padding_tokens, dtype=torch.int64)
-            }
+            ]
         )
 
         # add only SOS and padding to dec input
         decoder_input = torch.cat(
-            {
+            [
                 self.sos_token,
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
                 torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
-            }
+            ]
         )
 
         # add only EOS and padding to label
         label = torch.cat(
-            {
+            [
                 torch.tensor(dec_input_tokens, dtype=torch.int64),
                 self.eos_token,
                 torch.tensor([self.pad_token] * dec_num_padding_tokens, dtype=torch.int64)
-            }
+            ]
         )
 
         assert encoder_input.size(0) == self.seq_len
@@ -107,7 +108,7 @@ class BilingualDataset(Dataset):
             # NOTE: causal mask: each word only should look at previous words and non-padding words
             "decoder_mask": (decoder_input != self.pad_token).unsqueeze(0).unsqueeze(0).int() 
                             &  # binary and
-                            causal_mask(decoder_input,size(0)), # (1, seq_len) & (1, seq_len, seq_len)
+                            causal_mask(decoder_input.size(0)), # (1, seq_len) & (1, seq_len, seq_len)
             
             "label": label, # (seqlen)
             # for visualization:

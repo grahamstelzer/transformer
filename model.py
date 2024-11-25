@@ -80,8 +80,8 @@ class PositionalEncoding(nn.Module):
         pe = torch.zeros(seq_len, d_model)
 
         # formula for positional encoding - see png or video from that 1 dude
-        position = torch.arrange(0, seq_len, dtype=torch.float).unsqueeze(1) # len=seq_len - 1
-        div_term = torch.exp(torch.arrange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        position = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(1) # len=seq_len - 1
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         # apply sin to even positions
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term) # odd terms
@@ -95,7 +95,8 @@ class PositionalEncoding(nn.Module):
         # add posiitonal encoding to every word in sentence
         #   NOTE: requires_grad fixes tensors since positions should be the same within a 
         #   sentence and NOT learned through model run
-        x = x + (self.pe[:, :x_shape[1], :]).requires_grad_(False) 
+        x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False) 
+
         return self.dropout(x) # NOTE: calls built in nn.Dropout 
 
 
@@ -192,9 +193,10 @@ class MultiHeadAttentionBlock(nn.Module):
 
         # TODO: figure out the view function
         # (batch, seqlen, dmodel) --> (batch, seqlen, h, d_k) --> (batch, h, seqlen, d_k)
-        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).tranpose(1, 2)
-        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).tranpose(1, 2)
-        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).tranpose(1, 2)
+        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(1, 2)
+
+        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).transpose(1, 2)
+        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(1, 2)
 
         
 
@@ -202,7 +204,7 @@ class MultiHeadAttentionBlock(nn.Module):
         x, self.attention_scores = MultiHeadAttentionBlock.attention(query, key, value, mask, self.dropout)
 
         # (batch, h , seq, d_k) --> (batch, seq, h, d_k) --> (batch, seq, de_model)
-        x = x.tranpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k) # TODO: contiguous function?? "in place"
+        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k) # TODO: contiguous function?? "in place"
 
         # (batch, seq, d_model) --> (batch, seq, d_model)
         return self.w_o(x)
@@ -372,7 +374,8 @@ class Transformer(nn.Module):
     def decode(self, encoder_output, src_mask, tgt, tgt_mask):
         tgt = self.tgt_embed(tgt)
         tgt = self.tgt_pos(tgt)
-        return self.encoder(tgt, encoder_output, src_mask, tgt_mask)
+        return self.decoder(tgt, encoder_output, src_mask, tgt_mask)
+
 
     def project(self, x):
         return self.projection_layer(x)
@@ -410,7 +413,7 @@ def build_transformer(src_vocab_size: int,
 
         feed_forward_block = FeedForwardBlock(d_model, d_ff, dropout)
 
-        encoder_block = EncoderBLock(encoder_self_attention, feed_forward_block, dropout)
+        encoder_block = EncoderBlock(encoder_self_attention, feed_forward_block, dropout)
         encoder_blocks.append(encoder_block)
 
     # create decoder blocks:
@@ -437,7 +440,7 @@ def build_transformer(src_vocab_size: int,
     # intialize parameters
     # NOTE: normally random, can be decided to make training a bit faster
     # NOTE: in this case using xavier_uniform_
-    for p in trasnformer.parameters(): # TODO: where does this function come from?? possibly from imported nn.Module stuff??
+    for p in transformer.parameters(): # TODO: where does this function come from?? possibly from imported nn.Module stuff??
         if p.dim() > 1:
             nn.init.xavier_uniform_(p)
 
