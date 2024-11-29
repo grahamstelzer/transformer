@@ -27,6 +27,44 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 
+# VALIDATION LOOP (visualization)
+
+# NOTE: run greedy decoding on model, run encoder only once
+def greedy_decode(model, source, source_name, tokenizer_src, tokenizer_tgt, max_len, device):
+
+
+
+def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_state, writer, num_examples=2):
+
+    model.eval() # tells pytorch that we will evaluate model 
+    count = 0
+    
+    # look at two sentences and check output
+    source_texts = []
+    expected = []
+    predicted = []
+    
+    # size of control window
+    console_width = 80
+
+    # TODO: torch.no_grad()
+    with torch.no_grad(): # removes gradient calculation since we do not want to train, just check
+        for batch in validation_ds:
+            count += 1
+            encoder_input = batch['encoder_input'].to(device)
+            encoder_mask = batch['encoder_mask'].to(device)
+
+            assert encoder_input.size(0) == 1, "batch size must be 1 for validation"
+
+
+
+
+
+
+
+
+# END VALIDATION THINGS
+
 def get_all_sentences(ds, lang):
     # NOTE: for this example, each item is a pair of sentences, english:italian
     for item in ds:
