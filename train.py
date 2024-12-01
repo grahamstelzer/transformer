@@ -3,6 +3,16 @@
 # TODO: figure out if there are C++ libraries that can do some of these things
 #       since i personally dont want to code a Tokenizer (yet)
 
+"""
+TODO: when we convert this to C++ and especially when we use this for other projects, we should comment or label wherever we use target and source texts.
+      that way when we change the input from text to any other form of data, we can simply find the inputs and outputs and make sure they are the same
+      form for the tokenizer
+      TODO: double check the tokenizer can work on other things? check its input?
+
+"""
+
+
+
 import warnings # should watch at least once, otherwise sort of unecessary (CUDA warnings)
 
 import torch
@@ -30,8 +40,45 @@ from tqdm import tqdm
 # VALIDATION LOOP (visualization)
 
 # NOTE: run greedy decoding on model, run encoder only once
-def greedy_decode(model, source, source_name, tokenizer_src, tokenizer_tgt, max_len, device):
+def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_len, device):
+    sos_idx = tokenizer_tgt.token_to_id('[SOS]')
+    eos_idx = tokenizer_tgt.token_to_id('[EOS]')
 
+    # precompute encoder output, reuse for every token we get from the decoder
+    encoder_output = model.encode(source, source_mask)
+
+    # initialize decoder with SOS
+    # TODO: .empty(), .fill_(), .type_as(), .to()
+    decoder_input = torch.empty(1,1).fill_(sos_idx).type_as(source).to(device) # NOTE: two dimenions for batch and num tokens for decoder input
+
+    # now keep asking the decoder to output the next token until EOS token or max_len reached
+    # so decoder output will become next input of next step
+    while True:
+
+        if decoder_input.size(1) == max_len: # check number of tokens in second dimension (input to decoder)
+            break
+        
+        # build mask for the target (decoder input)
+        decoder_mask = causal_mask(decoder_input.size(1)).type_as(source_mask).to(device) # dont want input to watch future words
+
+        # calc output of decoder
+        # reuse encoder_output each iteration
+        out = model.decoder(encoder_output, source_mask, decoder_input, decoder_mask)
+
+        # get next token:
+        prob = model.project(out[:, -1])
+        # get token with max probability using greedy search
+        _, next_word = torch.max(prob, dim=1)
+
+        # append
+        # TODO: should maybe output each step of this just to visualize
+        decoder_input = torch.cat([decoder_input, torch.empty(1,1).type_as(source).fill_(next_word.item()).to(device)], dim=1)
+
+        if next_word == eos_idx:
+            break
+
+    # TODO: squeeze function
+    return decoder_input.squeeze(0) # squeeze to remove batch dimension
 
 
 def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_state, writer, num_examples=2):
@@ -39,10 +86,11 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
     model.eval() # tells pytorch that we will evaluate model 
     count = 0
     
-    # look at two sentences and check output
-    source_texts = []
-    expected = []
-    predicted = []
+    # NOTE: uncomment next couple lines if using writer library 
+    # look at two sentences and check output:
+    # source_texts = []
+    # expected = []
+    # predicted = []
     
     # size of control window
     console_width = 80
@@ -56,11 +104,34 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
 
             assert encoder_input.size(0) == 1, "batch size must be 1 for validation"
 
+            model_out = greedy_decode(model, encoder_input, encoder_mask, tokenizer_src, tokenizer_tgt, max_len, device)
+
+            # compare to expected label
+
+            # TODO: double check batch is the right datatype?
+            source_text = batch['src_text'][0]
+            target_text = batch['tgt_text'][0]
+
+            # to get out text, must use tokenizer to convert tokens into text, use tgt_tokenizer since this the target language
+            # TODO: detach(), cpu(), numpy()
+            model_out_text = tgt_tokenizer.decode(model_out.detach().cpu().numpy())
+
+            source_texts.append(source_text)
+            expected.append(target_text)
+            predicted.append(model_out_text)
+
+            # since we are using tqdm, printing with base python print might mess with the progress bar
+            print_msg('-'*console_width)
+            print_msg(f"{f'SOURCE: ':>12}{source_text}")
+            print_msg(f"{f'TARGET: ':>12}{target_text}")
+            print_msg(f"{f'PREDICTED: ':>12}{model_out_text}")
+
+            if count == num_examples:
+                print_msg('-'*console_width)
+                break
 
 
-
-
-
+    # TODO: not critical, see github example for writer with more functionality
 
 
 # END VALIDATION THINGS
@@ -186,10 +257,13 @@ def train_model(config):
 
     # actual training loop:
     for epoch in range(initial_epoch, config['num_epochs']):
-        model.train()
+
         batch_iterator = tqdm(train_dataloader, desc=f'processing epoch {epoch:02d}') # progress bar
         # TODO batch_iterator: I'm not sure how this works
         for batch in batch_iterator:
+
+            model.train() # change to inside this loop so each time validation run, put model back into training loop
+
             # get tensors
             encoder_input = batch['encoder_input'].to(device) # (batch, seqlen)
             decoder_input = batch['decoder_input'].to(device) # (batch, seqlen)
@@ -207,6 +281,8 @@ def train_model(config):
 
             # (batch, seqlen, tgt_vocab_size) -> (batch * seqlen, tgt_vocab_size)
             # because we want to compare to label
+            # TODO: understand loss function inputs and how it works, may need to write own version
+            #       ...nn.CrossEntropyLoss(...)
             loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1)) # TODO .view function
 
             # update/show loss progress bar:
@@ -225,7 +301,15 @@ def train_model(config):
             optimizer.step()
             optimizer.zero_grad()
 
+            # NOTE: uncomment to watch model train at every step, must make sure model is trained otherwise will give just big strings of commmas as predicted
+            # run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+
             global_step += 1
+
+            # run outside of each epoch so model gets trained
+            # NOTE: see inference.ipynb for quick example
+            run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+
         
 
         # save model every epoch
