@@ -3,10 +3,10 @@
 # TODO: figure out if there are C++ libraries that can do some of these things
 #       since i personally dont want to code a Tokenizer (yet)
 
-""""
+"""
 TODO: when running validation or even visuals, its suggested we train the model for more than a couple hours first
       we should verify that the model receives the weights from previous runs when training, since i dont know if its suggested to just run train.py multiple times.
-""""
+"""
 
 
 """
@@ -94,9 +94,9 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
     
     # NOTE: uncomment next couple lines if using writer library 
     # look at two sentences and check output:
-    # source_texts = []
-    # expected = []
-    # predicted = []
+    source_texts = []
+    expected = []
+    predicted = []
     
     # size of control window
     console_width = 80
@@ -120,7 +120,7 @@ def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, 
 
             # to get out text, must use tokenizer to convert tokens into text, use tgt_tokenizer since this the target language
             # TODO: detach(), cpu(), numpy()
-            model_out_text = tgt_tokenizer.decode(model_out.detach().cpu().numpy())
+            model_out_text = tokenizer_tgt.decode(model_out.detach().cpu().numpy())
 
             source_texts.append(source_text)
             expected.append(target_text)
@@ -314,7 +314,7 @@ def train_model(config):
 
         # run outside of each epoch so model gets trained
         # NOTE: see inference.ipynb for quick example
-        run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
 
         
 
