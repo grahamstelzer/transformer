@@ -3,6 +3,12 @@
 # TODO: figure out if there are C++ libraries that can do some of these things
 #       since i personally dont want to code a Tokenizer (yet)
 
+""""
+TODO: when running validation or even visuals, its suggested we train the model for more than a couple hours first
+      we should verify that the model receives the weights from previous runs when training, since i dont know if its suggested to just run train.py multiple times.
+""""
+
+
 """
 TODO: when we convert this to C++ and especially when we use this for other projects, we should comment or label wherever we use target and source texts.
       that way when we change the input from text to any other form of data, we can simply find the inputs and outputs and make sure they are the same
@@ -306,9 +312,9 @@ def train_model(config):
 
             global_step += 1
 
-            # run outside of each epoch so model gets trained
-            # NOTE: see inference.ipynb for quick example
-            run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+        # run outside of each epoch so model gets trained
+        # NOTE: see inference.ipynb for quick example
+        run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
 
         
 
