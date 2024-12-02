@@ -69,7 +69,7 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
 
         # calc output of decoder
         # reuse encoder_output each iteration
-        out = model.decoder(encoder_output, source_mask, decoder_input, decoder_mask)
+        out = model.decode(encoder_output, source_mask, decoder_input, decoder_mask)
 
         # get next token:
         prob = model.project(out[:, -1])
@@ -87,7 +87,7 @@ def greedy_decode(model, source, source_mask, tokenizer_src, tokenizer_tgt, max_
     return decoder_input.squeeze(0) # squeeze to remove batch dimension
 
 
-def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_state, writer, num_examples=2):
+def run_validation(model, validation_ds, tokenizer_src, tokenizer_tgt, max_len, device, print_msg, global_step, writer, num_examples=2):
 
     model.eval() # tells pytorch that we will evaluate model 
     count = 0
@@ -217,7 +217,7 @@ def get_ds(config):
 
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], config['d_model'])
+    model = build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['seq_len'], d_model=config['d_model'])
     return model
 
 # NOTE: reduce number of heads or layer if too much for GPU
@@ -308,13 +308,13 @@ def train_model(config):
             optimizer.zero_grad()
 
             # NOTE: uncomment to watch model train at every step, must make sure model is trained otherwise will give just big strings of commmas as predicted
-            # run_validation(model, val_dataloader, tokenizer, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+            run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
 
             global_step += 1
 
         # run outside of each epoch so model gets trained
         # NOTE: see inference.ipynb for quick example
-        run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
+        # run_validation(model, val_dataloader, tokenizer_src, tokenizer_tgt, config['seq_len'], device, lambda msg: batch_iterator.write(msg), global_step, writer) # NOTE writer not used unless with better writer libray (see validation/ghub)
 
         
 
