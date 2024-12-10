@@ -226,7 +226,6 @@ class ResidualConnection(nn.Module):
 
 
 
-
 class EncoderBlock(nn.Module):
     
     def __init__(self, 
